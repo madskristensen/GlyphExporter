@@ -19,4 +19,4 @@ Any image icons present in those services will be exported to disk.
 By going to **Tools -> Export Glyphs** you will be prompted to select 
 a folder on disk where the images should be exported into. 
 
-The images can be seen here http://glyphlist.azurewebsites.net/images
+The images can be seen here http://glyphlist.azurewebsites.net/
