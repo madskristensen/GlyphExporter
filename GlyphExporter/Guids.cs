@@ -14,6 +14,6 @@ namespace MadsKristensen.GlyphExporter
 
     static class PkgCmdIDList
     {
-        public const uint cmdidMyCommand = 0x100;
-    }
+        public const uint cmdidGlyph = 0x100;
+	}
 }
