@@ -1,0 +1,8 @@
+version: 1.0.{build}
+configuration: CI
+platform: Any CPU
+build:
+  verbosity: minimal
+artifacts:
+- path: GlyphExporter/bin/CI/GlyphExporter.vsix
+  name: Nightly Build
