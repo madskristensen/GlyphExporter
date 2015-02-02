@@ -1,9 +1,12 @@
 ﻿using System;
 using System.ComponentModel.Design;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Windows;
 using System.Windows.Forms;
+using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using Microsoft.VisualStudio.ComponentModelHost;
 using Microsoft.VisualStudio.Imaging;
@@ -51,10 +54,29 @@ namespace MadsKristensen.GlyphExporter
 			imageAttributes.LogicalWidth = 16;
 			imageAttributes.StructSize = Marshal.SizeOf(typeof(ImageAttributes));
 
+			WriteableBitmap sprite = null;
+			int count = 0;
+			char letter = ' ';
+
 			foreach (var monikerName in monikers)
 			{
 				ImageMoniker moniker = (ImageMoniker)monikerName.GetValue(null, null);
 				IVsUIObject result = _imageService.GetImage(moniker, imageAttributes);
+
+				if (monikerName.Name[0] != letter)
+				{
+					if (sprite != null)
+					{
+						sprite.Unlock();
+						SaveBitmapToDisk(sprite, Path.Combine(folder, "_sprites", letter + ".png"));
+					}
+
+					int items = monikers.Count(m => m.Name[0] == monikerName.Name[0]);
+					sprite = new WriteableBitmap(16, 16 * (items), 96, 96, PixelFormats.Pbgra32, null);
+					sprite.Lock();
+					letter = monikerName.Name[0];
+					count = 0;
+				}
 
 				Object data;
 				result.get_Data(out data);
@@ -63,11 +85,42 @@ namespace MadsKristensen.GlyphExporter
 					continue;
 
 				BitmapSource glyph = data as BitmapSource;
-
 				string fileName = Path.Combine(folder, monikerName.Name + ".png");
+
+				int stride = glyph.PixelWidth * (glyph.Format.BitsPerPixel / 8);
+				byte[] buffer = new byte[stride * glyph.PixelHeight];
+				glyph.CopyPixels(buffer, stride, 0);
+
+				sprite.WritePixels(new Int32Rect(0, count, glyph.PixelWidth, glyph.PixelHeight), buffer, stride, 0);
+				count += 16;
 
 				SaveBitmapToDisk(glyph, fileName);
 			}
+		}
+
+		private void AddImageSprites(string folder)
+		{
+			var images = Directory.GetFiles(folder, "*.png");
+			int count = 0;
+
+			var sprite = new WriteableBitmap(16, 16 * (images.Length), 96, 96, PixelFormats.Pbgra32, null);
+			sprite.Lock();
+
+			foreach (string image in images)
+			{
+				BitmapSource glyph = new BitmapImage(new Uri(image, UriKind.Absolute));
+
+				int stride = glyph.PixelWidth * (glyph.Format.BitsPerPixel / 8);
+				byte[] data = new byte[stride * glyph.PixelHeight];
+				glyph.CopyPixels(data, stride, 0);
+
+				sprite.WritePixels(
+					new Int32Rect(0, count, glyph.PixelWidth, glyph.PixelHeight),
+					data, stride, 0);
+			}
+
+			sprite.Unlock();
+			SaveBitmapToDisk(sprite, Path.Combine(folder, "_sprites", "_sprite.png"));
 		}
 
 		private void ButtonClicked(object sender, EventArgs e)
@@ -98,6 +151,12 @@ namespace MadsKristensen.GlyphExporter
 			Array items = Enum.GetValues(typeof(StandardGlyphItem));
 
 			foreach (var groupName in groups)
+			{
+				int count = 0;
+				string glyphFolder = Path.Combine(folder, groupName.ToString());
+				var sprite = new WriteableBitmap(16, 16 * (items.Length), 96, 96, PixelFormats.Pbgra32, null);
+				sprite.Lock();
+
 				foreach (var itemName in items)
 				{
 					StandardGlyphGroup group = (StandardGlyphGroup)groupName;
@@ -111,7 +170,21 @@ namespace MadsKristensen.GlyphExporter
 					string fileName = Path.Combine(folder, group.ToString(), item.ToString() + ".png");
 
 					SaveBitmapToDisk(glyph, fileName);
+
+					int stride = glyph.PixelWidth * (glyph.Format.BitsPerPixel / 8);
+					byte[] data = new byte[stride * glyph.PixelHeight];
+					glyph.CopyPixels(data, stride, 0);
+
+					sprite.WritePixels(
+						new Int32Rect(0, count, glyph.PixelWidth, glyph.PixelHeight),
+						data, stride, 0);
+
+					count += 16;
 				}
+
+				sprite.Unlock();
+				SaveBitmapToDisk(sprite, Path.Combine(folder, "_sprites", groupName + ".png"));
+			}
 		}
 
 		private static void SaveBitmapToDisk(BitmapSource glyph, string fileName)
