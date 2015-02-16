@@ -17,7 +17,6 @@ using Microsoft.VisualStudio.Shell.Interop;
 
 namespace MadsKristensen.GlyphExporter
 {
-
 	[PackageRegistration(UseManagedResourcesOnly = true)]
 	[InstalledProductRegistration("#110", "#112", "1.0", IconResourceID = 400)]
 	[ProvideMenuResource("Menus.ctmenu", 1)]
@@ -40,6 +39,17 @@ namespace MadsKristensen.GlyphExporter
 			CommandID cmdGlyphId = new CommandID(GuidList.guidGlyphExporterCmdSet, (int)PkgCmdIDList.cmdidGlyph);
 			MenuCommand menuGlyph = new MenuCommand(ButtonClicked, cmdGlyphId);
 			mcs.AddCommand(menuGlyph);
+		}
+
+		private void ButtonClicked(object sender, EventArgs e)
+		{
+			string folder = GetFolder();
+
+			if (!string.IsNullOrEmpty(folder) && Directory.Exists(folder))
+			{
+				SaveImagesToDisk(Path.Combine(folder, "images"));
+				SaveGlyphsToDisk(Path.Combine(folder, "glyphs"));
+			}
 		}
 
 		private void SaveImagesToDisk(string folder)
@@ -96,54 +106,12 @@ namespace MadsKristensen.GlyphExporter
 
 				SaveBitmapToDisk(glyph, fileName);
 			}
-		}
 
-		private void AddImageSprites(string folder)
-		{
-			var images = Directory.GetFiles(folder, "*.png");
-			int count = 0;
-
-			var sprite = new WriteableBitmap(16, 16 * (images.Length), 96, 96, PixelFormats.Pbgra32, null);
-			sprite.Lock();
-
-			foreach (string image in images)
-			{
-				BitmapSource glyph = new BitmapImage(new Uri(image, UriKind.Absolute));
-
-				int stride = glyph.PixelWidth * (glyph.Format.BitsPerPixel / 8);
-				byte[] data = new byte[stride * glyph.PixelHeight];
-				glyph.CopyPixels(data, stride, 0);
-
-				sprite.WritePixels(
-					new Int32Rect(0, count, glyph.PixelWidth, glyph.PixelHeight),
-					data, stride, 0);
-			}
-
+			// Save the last image sprite to disk
 			sprite.Unlock();
-			SaveBitmapToDisk(sprite, Path.Combine(folder, "_sprites", "_sprite.png"));
+			SaveBitmapToDisk(sprite, Path.Combine(folder, "_sprites", letter + ".png"));
 		}
 
-		private void ButtonClicked(object sender, EventArgs e)
-		{
-			string folder = GetFolder();
-
-			if (!string.IsNullOrEmpty(folder) && Directory.Exists(folder))
-			{
-				SaveImagesToDisk(Path.Combine(folder, "images"));
-				SaveGlyphsToDisk(Path.Combine(folder, "glyphs"));
-			}
-		}
-
-		private static string GetFolder()
-		{
-			using (FolderBrowserDialog dialog = new FolderBrowserDialog())
-			{
-				dialog.RootFolder = Environment.SpecialFolder.DesktopDirectory;
-				dialog.ShowDialog();
-
-				return dialog.SelectedPath;
-			}
-		}
 
 		private void SaveGlyphsToDisk(string folder)
 		{
@@ -196,6 +164,17 @@ namespace MadsKristensen.GlyphExporter
 				BitmapEncoder encoder = new PngBitmapEncoder();
 				encoder.Frames.Add(BitmapFrame.Create(glyph));
 				encoder.Save(fileStream);
+			}
+		}
+
+		private static string GetFolder()
+		{
+			using (FolderBrowserDialog dialog = new FolderBrowserDialog())
+			{
+				dialog.RootFolder = Environment.SpecialFolder.DesktopDirectory;
+				dialog.ShowDialog();
+
+				return dialog.SelectedPath;
 			}
 		}
 	}
