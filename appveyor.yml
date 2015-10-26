@@ -15,7 +15,7 @@ after_build:
   - ps: Vsix-PushArtifacts | Vsix-PublishToGallery
 
 before_deploy:
-  - ps: Vsix-CreateChocolatyPackage
+  - ps: Vsix-CreateChocolatyPackage -packageId glyphexporter
 
 deploy:
   - provider: Environment
