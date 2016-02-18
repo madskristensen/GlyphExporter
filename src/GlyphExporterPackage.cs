@@ -18,12 +18,11 @@ using Microsoft.VisualStudio.Shell.Interop;
 namespace MadsKristensen.GlyphExporter
 {
 	[PackageRegistration(UseManagedResourcesOnly = true)]
-	[InstalledProductRegistration("#110", "#112", Version, IconResourceID = 400)]
+	[InstalledProductRegistration("#110", "#112", Vsix.Version, IconResourceID = 400)]
 	[ProvideMenuResource("Menus.ctmenu", 1)]
-	[Guid(GuidList.guidGlyphExporterPkgString)]
+	[Guid(PackageGuids.guidGlyphExporterPkgString)]
 	public sealed class GlyphExporterPackage : Package
 	{
-        public const string Version = "1.1";
 		private IGlyphService _glyphService;
 		private IVsImageService2 _imageService;
 
@@ -37,7 +36,7 @@ namespace MadsKristensen.GlyphExporter
 
 			OleMenuCommandService mcs = GetService(typeof(IMenuCommandService)) as OleMenuCommandService;
 
-			CommandID cmdGlyphId = new CommandID(GuidList.guidGlyphExporterCmdSet, (int)PkgCmdIDList.cmdidGlyph);
+			CommandID cmdGlyphId = new CommandID(PackageGuids.guidGlyphExporterCmdSet, PackageIds.cmdidGlyph);
 			MenuCommand menuGlyph = new MenuCommand(ButtonClicked, cmdGlyphId);
 			mcs.AddCommand(menuGlyph);
 		}

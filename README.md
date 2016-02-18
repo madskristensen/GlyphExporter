@@ -1,4 +1,4 @@
-## Glyph Exporter for Visual Studio
+# Glyph Exporter for Visual Studio
 
 [![Build status](https://ci.appveyor.com/api/projects/status/3uw49mn555ac8kq6?svg=true)](https://ci.appveyor.com/project/madskristensen/glyphexporter)
 
@@ -20,3 +20,10 @@ By going to **Tools -> Export Glyphs** you will be prompted to select
 a folder on disk where the images should be exported into. 
 
 The images can be seen here http://glyphlist.azurewebsites.net/
+
+## License
+[Apache 2.0](LICENSE)
+
+## Contribute
+Check out the [contribution guidelines](.github/CONTRIBUTION.md)
+if you want to contribute to this project.

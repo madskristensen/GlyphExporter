@@ -4,12 +4,12 @@ using System.Resources;
 using System.Runtime.InteropServices;
 using MadsKristensen.GlyphExporter;
 
-[assembly: AssemblyTitle("Glyph Exporter")]
-[assembly: AssemblyDescription("")]
+[assembly: AssemblyTitle(Vsix.Name)]
+[assembly: AssemblyDescription(Vsix.Description)]
 [assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("Mads Kristensen")]
-[assembly: AssemblyProduct("Glyph Exporter")]
-[assembly: AssemblyCopyright("")]
+[assembly: AssemblyCompany(Vsix.Author)]
+[assembly: AssemblyProduct(Vsix.Name)]
+[assembly: AssemblyCopyright(Vsix.Author)]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 [assembly: ComVisible(false)]
@@ -17,5 +17,5 @@ using MadsKristensen.GlyphExporter;
 [assembly: NeutralResourcesLanguage("en-US")]
 
 
-[assembly: AssemblyVersion(GlyphExporterPackage.Version)]
-[assembly: AssemblyFileVersion(GlyphExporterPackage.Version)]
+[assembly: AssemblyVersion(Vsix.Version)]
+[assembly: AssemblyFileVersion(Vsix.Version)]
