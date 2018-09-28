@@ -4,10 +4,12 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Threading;
 using System.Windows;
 using System.Windows.Forms;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using Microsoft;
 using Microsoft.VisualStudio.ComponentModelHost;
 using Microsoft.VisualStudio.Imaging;
 using Microsoft.VisualStudio.Imaging.Interop;
@@ -17,27 +19,36 @@ using Microsoft.VisualStudio.Shell.Interop;
 
 namespace MadsKristensen.GlyphExporter
 {
-	[PackageRegistration(UseManagedResourcesOnly = true)]
+	[PackageRegistration(UseManagedResourcesOnly = true, AllowsBackgroundLoading = true)]
 	[InstalledProductRegistration("#110", "#112", Vsix.Version, IconResourceID = 400)]
 	[ProvideMenuResource("Menus.ctmenu", 1)]
 	[Guid(PackageGuids.guidGlyphExporterPkgString)]
-	public sealed class GlyphExporterPackage : Package
-	{
+	public sealed class GlyphExporterPackage : AsyncPackage
+    {
 		private IGlyphService _glyphService;
 		private IVsImageService2 _imageService;
 
-		protected override void Initialize()
+		protected override async System.Threading.Tasks.Task InitializeAsync(CancellationToken cancellationToken, IProgress<ServiceProgressData> progress)
 		{
-			base.Initialize();
+            await base.InitializeAsync(cancellationToken, progress);
 
-			IComponentModel model = (IComponentModel)this.GetService(typeof(SComponentModel));
-			_glyphService = model.GetService<IGlyphService>();
-			_imageService = GetService(typeof(SVsImageService)) as IVsImageService2;
+            // When initialized asynchronously, we *may* be on a background thread at this point.
+            // Do any initialization that requires the UI thread after switching to the UI thread.
+            // Otherwise, remove the switch to the UI thread if you don't need it.
+            await JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
 
-			OleMenuCommandService mcs = GetService(typeof(IMenuCommandService)) as OleMenuCommandService;
+            var model = (IComponentModel)await GetServiceAsync(typeof(SComponentModel));
+            Assumes.Present(model);
+            _glyphService = model.GetService<IGlyphService>();
 
-			CommandID cmdGlyphId = new CommandID(PackageGuids.guidGlyphExporterCmdSet, PackageIds.cmdidGlyph);
-			MenuCommand menuGlyph = new MenuCommand(ButtonClicked, cmdGlyphId);
+            _imageService = await GetServiceAsync(typeof(SVsImageService)) as IVsImageService2;
+            Assumes.Present(_imageService);
+
+            var mcs = await GetServiceAsync(typeof(IMenuCommandService)) as OleMenuCommandService;
+            Assumes.Present(mcs);
+
+            var cmdGlyphId = new CommandID(PackageGuids.guidGlyphExporterCmdSet, PackageIds.cmdidGlyph);
+			var menuGlyph = new MenuCommand(ButtonClicked, cmdGlyphId);
 			mcs.AddCommand(menuGlyph);
 		}
 
@@ -54,23 +65,27 @@ namespace MadsKristensen.GlyphExporter
 
 		private void SaveImagesToDisk(string folder)
 		{
-			PropertyInfo[] monikers = typeof(KnownMonikers).GetProperties(BindingFlags.Static | BindingFlags.Public);
+            ThreadHelper.ThrowIfNotOnUIThread();
 
-			ImageAttributes imageAttributes = new ImageAttributes();
-			imageAttributes.Flags = (uint)_ImageAttributesFlags.IAF_RequiredFlags;
-			imageAttributes.ImageType = (uint)_UIImageType.IT_Bitmap;
-			imageAttributes.Format = (uint)_UIDataFormat.DF_WPF;
-			imageAttributes.LogicalHeight = 16;
-			imageAttributes.LogicalWidth = 16;
-			imageAttributes.StructSize = Marshal.SizeOf(typeof(ImageAttributes));
+            PropertyInfo[] monikers = typeof(KnownMonikers).GetProperties(BindingFlags.Static | BindingFlags.Public);
 
-			WriteableBitmap sprite = null;
+            var imageAttributes = new ImageAttributes
+            {
+                Flags = (uint)_ImageAttributesFlags.IAF_RequiredFlags,
+                ImageType = (uint)_UIImageType.IT_Bitmap,
+                Format = (uint)_UIDataFormat.DF_WPF,
+                LogicalHeight = 16,
+                LogicalWidth = 16,
+                StructSize = Marshal.SizeOf(typeof(ImageAttributes))
+            };
+
+            WriteableBitmap sprite = null;
 			int count = 0;
 			char letter = ' ';
 
-			foreach (var monikerName in monikers)
+			foreach (PropertyInfo monikerName in monikers)
 			{
-				ImageMoniker moniker = (ImageMoniker)monikerName.GetValue(null, null);
+				var moniker = (ImageMoniker)monikerName.GetValue(null, null);
 				IVsUIObject result = _imageService.GetImage(moniker, imageAttributes);
 
 				if (monikerName.Name[0] != letter)
@@ -88,13 +103,12 @@ namespace MadsKristensen.GlyphExporter
 					count = 0;
 				}
 
-				Object data;
-				result.get_Data(out data);
+                result.get_Data(out object data);
 
-				if (data == null)
+                if (data == null)
 					continue;
 
-				BitmapSource glyph = data as BitmapSource;
+				var glyph = data as BitmapSource;
 				string fileName = Path.Combine(folder, monikerName.Name + ".png");
 
 				int stride = glyph.PixelWidth * (glyph.Format.BitsPerPixel / 8);
@@ -118,24 +132,22 @@ namespace MadsKristensen.GlyphExporter
 			Array groups = Enum.GetValues(typeof(StandardGlyphGroup));
 			Array items = Enum.GetValues(typeof(StandardGlyphItem));
 
-			foreach (var groupName in groups)
+			foreach (object groupName in groups)
 			{
 				int count = 0;
 				string glyphFolder = Path.Combine(folder, groupName.ToString());
 				var sprite = new WriteableBitmap(16, 16 * (items.Length), 96, 96, PixelFormats.Pbgra32, null);
 				sprite.Lock();
 
-				foreach (var itemName in items)
+				foreach (object itemName in items)
 				{
-					StandardGlyphGroup group = (StandardGlyphGroup)groupName;
-					StandardGlyphItem item = (StandardGlyphItem)itemName;
+					var group = (StandardGlyphGroup)groupName;
+					var item = (StandardGlyphItem)itemName;
 
-					BitmapSource glyph = _glyphService.GetGlyph(group, item) as BitmapSource;
+                    if (!(_glyphService.GetGlyph(group, item) is BitmapSource glyph))
+                        continue;
 
-					if (glyph == null)
-						continue;
-
-					string fileName = Path.Combine(folder, group.ToString(), item.ToString() + ".png");
+                    string fileName = Path.Combine(folder, group.ToString(), item.ToString() + ".png");
 
 					SaveBitmapToDisk(glyph, fileName);
 
@@ -169,7 +181,7 @@ namespace MadsKristensen.GlyphExporter
 
 		private static string GetFolder()
 		{
-			using (FolderBrowserDialog dialog = new FolderBrowserDialog())
+			using (var dialog = new FolderBrowserDialog())
 			{
 				dialog.RootFolder = Environment.SpecialFolder.DesktopDirectory;
 				dialog.ShowDialog();
